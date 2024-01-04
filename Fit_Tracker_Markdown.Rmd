@@ -1,0 +1,553 @@
+---
+title: "Fit Tracker Google Analytics Capstone Project"
+author: "Michael"
+date: '2022-06-11'
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This is my capstone project for the Google Data Analytics Certificate Program. In this capstone, I am tasked with analyzing a set of data collected from Fitbit users to gain insight into health-tracking devices and using this insight to inform key business questions at the fictional company 'Bellabeat', a health-focused smart device company. Bellbeat is interested in developing their own line of health-focused wearables, and are looking for data driven guidance for their marketing strategy of their new wearable devices.
+
+# Deliverables
+
+There are 6 Deliverables for this Project as Stated in the Task Description:
+
+1)  A summary of the business task
+2)  A description of all data sources used
+3)  Documentation of the data cleaning process
+4)  A summary of the analysis
+5)  Visualizations and key findings
+6)  Recommendations based on our findings
+
+These deliverables loosely map onto the 6 Phases of Data Analysis: 1) Ask, 2) Prepare, 3) Process, 4) Analyze, 5) Share, and 6) Act.
+
+This report will cover each of these 6 steps of the data analysis process, and provide the corresponding deliverable for each step (eg. 'Phase 1 - Ask' will provide the 'summary of the business task' deliverable)
+
+# PHASE 1 - ASK
+
+Our goal in analyzing this data is to gain insight into how customers use smart devices in order to inform our company's marketing strategy.
+
+To help guide our analysis, we begin by breaking this goal down further into the following questions we would like to answer:
+
+1.1) What are trends in usage?\
+1.2) What are potential use-cases for similar products?\
+1.3) How could these trends and use-cases apply to our customers?\
+1.4) How could these insights influence our marketing strategy?
+
+We revisit these questions in the Phase 6 (Act) section of this document.
+
+# PHASE 2 - PREPARE
+
+In this phase we collect our data sets, setup secure data storage and begin assessing the quality of the data by considering its source, sample-size, bias, reliability, and other factors. We include this summary below:
+
+## 2.1) Where is the Data Stored?
+
+Data is stored in folder system on my PC. I use an R package, sqldf, to query the data in the form of a relational database using SQL syntax.
+
+## 2.2) How is the Data Organized?
+
+The data is separated into data sets for different metrics (eg. calories, steps, intensities, heart rate, etc.) It is further separated within data frames by time (day, hour, minute).
+
+## 2.3) Is the Data Biased or Credible?
+
+This data comes from an external source, so it may not be trustworthy. Some sections might be incredible or biased, eg. weight_log_info.csv contains manual report data. The sample size of 30 is likely too small, considering the population is all Fitbit users. Further demographic information of the users and the rest of the main Fitbut user-base could be useful to determine the extent to which the sample is representative and/or biased.
+
+## 2.4) Discuss the Licensing, Privacy, Security, and Accessibility of the Data.
+
+The data is secure by being password protected, although the data is also open-source. Integrity of data (accuracy, completeness, consistency) - The data is not first party. It comes from an external source so it's quality is suspect. How does it help answer the question? - The data shows users' activity levels, sleep, and calories burned over time. It may be able to identify trends and potential uses for health tracking devices.
+
+## 2.5) What are the Problems with Data?
+
+Our company's target audience is Women, and this data set doesn't contain demographic information, so we cannot assess whether this Fitbit data varies with gender. We will need to keep this in mind during the interpretation of our results. **ROCCC** method for assessing data quality:
+
+#### 2.5.1) R (Reliable)
+
+This data is from an external source so its reliability is in question. The sample size is also small and there is no demographic information included on the subjects or the Fitbit user population in general.
+
+#### 2.5.2) O (Original)
+
+This is an original data set collected through users who consented to have their data sent collected.
+
+#### 2.5.3) C (Comprehensive)
+
+For the users that it does contain data on, this data set has comprehensive data on activity levels etc. Although there is still a lot of information that could be useful for answering our question (eg. What activities do users use their Fitbit during? What features do users most enjoy/use about their Fitbit).
+
+#### 2.5.4) C (Current)
+
+This data is from March to May of 2016 and is thus not current since Fitbit technology and products have advanced considerably since then. For example, the Fitbit Versa 3 was released in August 2020 and new models are generally released every year or two.
+
+#### 2.5.5) C (Cited)
+
+Citation information appears to be unavailable for this data.
+
+**Note** - After some exploratory analysis of the given data set, we find an interesting trend between activity intensity and caloric expenditure which we want to explore further. At this point, we returned to the Prepare Phase to find additional data to help us gain insight into this trend. We preform a similar analysis of this supplemental data set that is not included for brevity.
+
+# PHASE 3 - PROCESS
+
+In this phase we clean and format the data.
+
+## 3.1) Import Packages
+
+```{r echo = FALSE}
+library(sqldf)
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r echo = FALSE}
+#setwd('C:\\Users\\micha\\Desktop\\RStudio Scripts and Data\\Google Capstone Analysis\\Fitabase Data 4.12.16-5.12.16')
+```
+
+```{r echo = FALSE}
+# Had to set Knit Directory > to current working directory, otherwise the working directory reset  
+```
+
+## 3.2) Load Data
+
+The 18 data tables are loaded efficiently into a list using the 'lapply()' function.
+
+```{r}
+files = list.files(pattern = "merged.csv$") #Generates a list of file names 
+data <- lapply(files, read.csv) #Loads all the files into a list
+names(data) <- gsub("\\.csv$", "", files) #Renames data frames with their original names
+```
+
+The following 3 steps are performed together in a for-loop. 3.3) Renaming Columns, 3.4) Checking for Missing Data and 3.5) Checking for Duplicates
+
+## 3.3) Renaming Columns
+
+The date/time columns do not have consistent naming across data tables, so we changed the name of all of them to 'TIME' so I can easily access them later via SQL queries.
+
+## 3.4) Checking for Missing Data
+
+For each data frame, I check each column for missing data and identify the columns with missing data. Only the 'Fat' column from the 'weightLogInfo_merged' data frame had missing data. In this column most of the data was missing so it was excluded from our analysis.
+
+## 3.5) Checking for Duplicates
+
+I check for duplicates using the 'sqldf' package to write a SQL query to create a new column that combines participant ID with the date and time of observation to create a unique identifier for each data point. I then use another SQL query to check if the number of distinct observations matches the number of total observations. There were no instances of repeated data.
+
+```{r}
+for (i in 1:length(data)) {
+  # check for repeat data
+  colnames(data[[i]])[2] <- 'TIME' # rename all the time data columns to "TIME" so I can SQL query them all in this for-loop
+  df <- data[[i]] # create temporary df to use in query
+  time_Id_combo <- sqldf("SELECT Id||' - '||TIME FROM df") # combine ID and TIME into a separate variable to be checked for duplicates
+  uniq <- sqldf("SELECT DISTINCT * FROM time_Id_combo") # select distinct values from the id - TIME combo to compare against full length
+  if (length((time_Id_combo[[1]])) != length(uniq[[1]])) { # compare for duplicates
+    cat('There are', length(time_Id_combo[[1]]) - length(uniq[[1]]), 'repeat time-id combos', '\n') # there are no repeat time/id combos
+  }
+  # check for Na's
+  for (col in data[[i]]) {
+    nas <- sum(is.na(col))
+    if (nas >= 1) { # There are several NA's in the "Fat" attribute of the weightLogInfo data frame 
+      cat('There are', nas, 'NAs in this column', '\n')
+    }
+  }
+  summary(data[[i]]) # check summary of each data frame
+}
+```
+
+# PHASE 4 - ANALYZE
+
+In this phase we identify and investigate trends, patterns, and interesting findings in the data.
+
+During analysis we separated this phase into 2 sub-processes: Exploratory Analysis and In-depth Analysis. However, much of the exploratory analysis that did not lead to major insights is excluded from this report for brevity's sake.
+
+We found 3 primary potential insights: 4.1) Exploration of Heart Rate Data, 4.2) Investigation of Number of Steps on Calories Burned, and 4.2) Investigation of Activity Intensity on Calories Burned.
+
+## 4.1) Potential Insight: Exploration of Heart Rate Data
+
+Can time-series heart rate data be used to detect features of interest, such as spikes and/or troughs that could warn the user of potential medical emergencies?
+
+First, use SQL to select a sample user's heart rate data
+
+```{r echo = FALSE}
+df1 <- data[[1]]
+df2 <- data[[5]]  
+df6 <- data[[6]]
+```
+
+```{r}
+hr_over_time <- sqldf("SELECT *
+                     FROM df2
+                     WHERE id = 2022484408") 
+```
+
+```{r echo = FALSE}
+hr_over_time$x <- 1:length(hr_over_time$Value) # loosely represents increasing time, plotting across actual datetime values crashed R
+```
+
+There is too much data for one time-series plot, so we will select a snapshot of the data to look at.
+
+```{r}
+snapshot <- sqldf("SELECT *
+                  FROM hr_over_time
+                  WHERE x >= 17500 AND x <= 25000")
+ggplot(data = snapshot, aes(x = x, y = Value)) + 
+  geom_line() + 
+  xlab('Time') + 
+  ylab('Heart Rate (bpm)')
+
+```
+
+We can see a wide range of heart rate variability for the participant over time. We see some dramatic peaks, so next, we will investigate whether any abnormally fast or abnormally slow heart rates are measured by the Fitbit over the entire time frame.
+
+```{r}
+over_200 <- sqldf("SELECT *
+                  FROM hr_over_time
+                  WHERE Value >= 200")  
+under_50 <- sqldf("SELECT *
+                  FROM hr_over_time
+                  WHERE value <= 45")
+head(over_200)
+head(under_50)
+
+```
+
+There were times where the participant's heart rate was measured as above 200 and also times when it was below 45. Our product could potentially identify abnormal heart rates and alert the user or even notify medical professionals in emergency situations. This could potentially be a use case for our health tracking products.
+
+## 4.2) Potential Insight: The Relationship Between Step Count and Calories Burned
+
+We speculate that there should be a positive relationship between step count and calories burned. To check this speculation, we create a scatter plot comparing total number of steps for each participant for each day to the corresponding number of calories burned that day.
+
+```{r}
+ggplot(data = df1, aes(x = TotalSteps, y = Calories)) +
+  geom_point() +
+  xlab('Total Steps in a Day by a Participant') + 
+  ylab('Total Calories Burned that Day')
+```
+
+One thing we notice from this graph is that there are data points with 0 steps recorded. After examining this aspect of the data further, we find that many participants have 1 or more days with 0 steps recorded. In fact, a few participants have many days with 0 calories burned. We suspect the most likely reason for this was from participants not wearing the device for a day. We conclude that this can bias our data and and skew averages, so we decide to filter out these data points with a SQL query.
+
+```{r}
+df1 <- sqldf("SELECT * FROM df1 WHERE TotalSteps > 0")
+```
+
+Now, we re-plot the data.
+
+```{r}
+ggplot(data = df1, aes(x = TotalSteps, y = Calories)) +
+  geom_point() +
+  xlab('Total Steps in a Day by a Participant') + 
+  ylab('Total Calories Burned that Day')
+```
+
+We still see some data points with oddly low caloric expenditure for the day, although these are still non-zero values so that cause is more difficult to determine. We cannot say with confidence whether these data points are erroneous, so we decide to leave them until we can gain more information about them.
+
+Also from looking at the graph, we see a clear positive relationship between the two, which confirms our speculation. To investigate this further, we create a simple linear regression model of caloric expenditure regressed on number of steps using the 'Regression' function from the 'lessR' package.
+
+```{r}
+library(lessR)
+Regression(Calories ~ TotalSteps, data = df1)
+```
+
+The output of the 'Regression()' function shows that there is a strong correlation of 0.56 between calories burned and total steps. The 3 plots referenced in the output are also plotted, which allows us to check our statistical assumptions (1. There is a linear relationship between the variables, 2. The data forms a bivariate normal distribution, 3. There are few bivariate outliers, 4. The residuals of the model are normally distributed, 5. The average residual error should be near 0 across values of the predictor variable, and 6. The variance of residuals should be even across the range of fitted values).
+
+We further investigate this trend by looking at 1) the relationship between the average steps and average calories burned for each participant (averaged across dates) and 2) the relationship between the average steps and average calories burned for each day (average across participants).
+
+To do this, we create 2 new dataframes, one that is grouped by participant id, and one that is grouped by date.
+
+```{r}
+df1_ids <- df1 %>% 
+  group_by(df1$Id) %>% 
+  mutate(avgCals = mean(Calories), avgSteps = mean(TotalSteps))
+
+df1_dates <- df1 %>% 
+  group_by(df1$TIME) %>% 
+  mutate(avgCals = mean(Calories), avgSteps = mean(TotalSteps))
+```
+
+Next, using the dataframe grouped by participant, we create a scatter plot comparing the average calories burned with the average number of total steps per participant
+
+```{r}
+ggplot(data = df1_ids, aes(x = avgSteps, y = avgCals)) + 
+  geom_point() + 
+  xlab('Avg Steps for Each Participant') + 
+  ylab('Avg Calories Burned by Each Participant') + 
+  ggtitle('Avg Steps per Participant vs Avg Calories')
+```
+
+Using the dataframe grouped by date, we create a similar scatter plot:
+
+```{r}
+ggplot(data = df1_dates, aes(x = avgSteps, y = avgCals)) + 
+  geom_point() + 
+  xlab('Avg Steps for Each Day') + 
+  ylab('Avg Calories Burned Each Day') + 
+  ggtitle("Avg Steps per Day Across Participants vs Avg Calories")
+```
+
+Noteably, there is an outlier for one of the days with a very low average for both steps and calories burned. This day occured on the last day of the study, and contains many participants who logged an unusually low number of steps and calories burned. We speculated that data collection only occured for part of the last day of the study, leading to vastly lower numbers of both calories burned and total steps. Indeed, upon checking the hourly time series data, we can see that measurements on the last day cease at 2 PM, instead of continuing until midnight. Because this data point likely introduces bias into our data set since it only contains data from the first part of the day, we decide to remove it for our analysis. Additionally, this point greatly enlarges the axes of our graph, so we remove it and re-plot the data below.
+
+```{r}
+df1_dates_no_outlier <- df1_dates %>% filter(TIME != '5/12/2016')
+ggplot(data = df1_dates_no_outlier, aes(x = avgSteps, y = avgCals)) + 
+  geom_point() + 
+  xlab('Avg Steps for Each Day') + 
+  ylab('Avg Calories Burned Each Day') + 
+  ggtitle("Avg Steps per Day Across Participants vs Avg Calories")
+```
+
+Finally, we compute the correlations between average number of steps and calories burned for each of the 2 data frames.
+
+```{r}
+cor(df1_ids$avgCals, df1_ids$avgSteps)
+cor(df1_dates$avgCals, df1_dates$avgSteps)
+```
+
+We see strong correlations between caloric expenditure and number of steps both when averaged by day and when averaged by participant (0.42 and 0.82 respectively). Although the correlation is much stronger when averaged across participants for each day. This indicates that there is a strong relationship between total steps in a day and total calories burned for that day. We will use this info later in Phase 6 (Act) section of this report to guide our recommendations.
+
+## 4.3) Potential Insight: Investigating Various Activity Levels on Calories Burned
+
+First, we create a scatter plot with all 3 of the activity levels vs. calories burned.
+
+```{r}
+ggplot(data = df1, aes(x=LightlyActiveMinutes, y=Calories, color = 'Lightly Active')) + 
+  labs(x = "Minutes of Activity in a Day", y = "Calories burned") +
+  ggtitle("Minutes of Differing Intensity Activity in a Day vs Calories Burned") + 
+  geom_point() + 
+  geom_point(data = df1, aes(x=VeryActiveMinutes, y=Calories, color = "Very Active")) + 
+  geom_point(data = df1, aes(x=FairlyActiveMinutes, y=Calories, color = "Fairly Active"))
+```
+
+The graph is a bit crowded, so next we look at just the medium and high intensity data points. We also noted that there are a number of points that show 0 calories burned and/or 0 minutes of activity in a day. We speculate that these may be measurement errors (eg. A user forgot to wear their device for a day).
+
+```{r}
+ggplot(data = df1, aes(x=VeryActiveMinutes, y=Calories, color = 'Very Active')) +
+  labs(x = "Minutes of Activity in a Day", y = "Calories burned") +
+  ggtitle("Minutes of Differing Intensity Activity in a Day vs Calories Burned") +
+  geom_point() + 
+  geom_point(data = df1, aes(x=FairlyActiveMinutes, y=Calories, color = 'Fairly Active'))
+```
+
+We notice a positive relationship between minutes of activity and calories burned for each of the 3 intensity levels. Next, we measure the correlations between caloric expenditure and each of the 3 activity levels.
+
+```{r}
+cor(df1$LightlyActiveMinutes, df1$Calories) # Cor of .18
+cor(df1$FairlyActiveMinutes, df1$Calories) # Cor of .26
+cor(df1$VeryActiveMinutes, df1$Calories) # Cor of .61
+
+```
+
+We find that the correlation between caloric expenditure and highly active minutes is over twice as strong as the other 2 correlations. We identified this as an interesting trend and wondered if high intensity activity is particularly beneficial for burning calories. We decided to investigate it further by finding another data set that would help us answer this question. This data set is discussed below.
+
+```{r echo = FALSE}
+exercise_df <- read.csv('exercise_dataset.csv')
+colnames(exercise_df)[1] <- "Activity" # Shorten the very long name 
+exercise_df$ActivityType <- 0 # Define the activity type, then plot w/ facet_wrap for activity type to compare trends
+exercise_df$ActivityType[2:7] <- "Cycling"
+exercise_df$ActivityType[14:15] <- "Calisthenics"
+exercise_df$ActivityType[17:18] <- "Weight Lifting"
+exercise_df$ActivityType[21:24] <- "Row Machine"
+exercise_df$ActivityType[26:27] <- "Aerobics"
+exercise_df$ActivityType[36:37] <- "Ballroom Dancing"
+exercise_df$ActivityType[38:48] <- "Running"
+exercise_df$ActivityType[95:96] <- "Horseback Riding"
+exercise_df$ActivityType[116:118] <- "Jumping Rope"
+exercise_df$ActivityType[148:149] <- "Playing with Children"
+exercise_df$ActivityType[152:155] <- "Climbing Hills"
+exercise_df$ActivityType[167:175] <- "Walking"
+exercise_df$ActivityType[178:180] <- "Canoeing"
+exercise_df$ActivityType[195:196] <- "Swimming Laps"
+exercise_df$ActivityType[203:204] <- "Treading Water"
+exercise_df$ActivityType[210:213] <- "Ice Skating"
+exercise_df$ActivityType[214:217] <- "Cross Country Skiing"
+exercise_df$ActivityType[219:221] <- "Downhill Skiing"
+exercise_df$ActivityType[242:243] <- "Carrying Loads Upstairs"
+```
+
+row_nums contains all the row numbers of the data set that pertain to the question we are investigating. This selects for only those rows that contain information on how caloric expenditure varies across different intensities of the same activity.
+
+```{r}
+row_nums = c(2:7, 15, 14, 18, 17, 21:24, 26,27, 36, 37, 38:48, 96, 95, 116:118, 148, 149, 152:155, 167:175, 178:180, 195, 196, 203, 204, 210:213, 214:217, 219:221, 242,243)
+row_nums <- as.data.frame(row_nums) # convert to dataframe to be used in sqldf() 
+```
+
+We then write a SQL query that selects only those rows of interest from the original data frame (we select only the row numbers from the data set that are contained in row_nums).
+
+```{r}
+# Select the rows that contain activities that are stratified by intensity level
+
+# This 1st query creates a row_num attribute for the dataframe that is used in the 2nd query
+intensity_df <- sqldf("SELECT *, ROW_NUMBER() OVER() AS row_num
+                      FROM exercise_df")
+# This query selects only those rows that have matching row number to the row_nums list
+intensity_df <- sqldf("SELECT * 
+                      FROM intensity_df
+                      WHERE row_num IN (SELECT * FROM row_nums)")
+
+# Note: An error was raised when I ran them both in 1 query, so I separated them into 2
+```
+
+If we plot the data now, the graphs are hard to read since the data is unordered. To fix this, we sort the data first by activity type and then by increasing intensity within each activity type.
+
+```{r}
+intensity_df <- intensity_df[
+  with(intensity_df, order(ActivityType, Calories.per.kg)),
+]
+row.names(intensity_df) <- 1:nrow(intensity_df)
+intensity_df$Activity <- factor(intensity_df$Activity, levels = intensity_df$Activity) # Changing variable to a factor ensures that they are plotted in order of increasing intensity in my plot (instead of the default, which is alphabetical)
+```
+
+Now that the data is sorted, we plot the data to visualize the relationship between activity intensity and caloric expenditure
+
+```{r fig.align="center", echo = FALSE,fig.width = 8}
+# Above code inside {} sets figure size to be larger 
+ggplot(data = intensity_df, aes(x = Activity, y = Calories.per.kg, fill = ActivityType)) +
+  geom_bar(position = 'dodge', stat = 'identity') + 
+  ggtitle("Caloric Expenditure Across Increasing Intensity Levels of Activities") + 
+  facet_wrap(~ActivityType, scales = "free_x", nrow = 4, labeller = labeller(ActivityType = label_wrap_gen(width = 8))) + 
+  theme(axis.text.x=element_blank(), #remove labels for each intensity level of activity on each graph since it gets over crowded 
+        axis.ticks.x=element_blank()) + 
+  labs(x = "Intensity Level (Increasing Left to Right for Each Sub-Plot)", y = "Calories Burned (per KG Bodyweight)")
+
+
+## ADD COLOR 
+```
+
+From the plot we see that for each activity, caloric expenditure increases monotonically with increasing intensity level. We also see large increases in caloric expenditure with increasing intensity for each activity, sometimes up to a 2- to 3-fold increase from low intensity to high intensity (eg. Cycling).
+
+Next I want to calculate the average difference between low and high intensity activity across each of the activities in order to get an estimate for the magnitude of the effect of exercise intensity on caloric expenditure.
+
+```{r}
+# Load the modified data set that contains the 'ActivityType' for each activity (eg. both 'Calisthenics, light' and 'Calisthenics, vigorous' are labelled with the 'Calisthenics' Activity Type)
+exercise_df_modified <- read.csv('exercise_intensity.csv')
+
+len <- length(exercise_df_modified$ActivityType)
+
+# Define our starting values for the ActivityType and low caloric expenditure. These are updated in the for-loop to calculate the difference in caloric expenditure between the low and high intensities of each activity. 
+prev_activity <- exercise_df_modified$ActivityType[1]
+low_cal <- exercise_df_modified$Calories.per.kg[1]
+
+# Define the vector that contains all the values of the difference between caloric expenditure for low and high intensities for each activity
+diff_vector <- c()
+low_vector <- c(low_cal)
+high_vector <- c()
+
+# Iterate through the data frame and calculate the difference between low and high intensities for each activity by saving the low caloric expenditure value to low_cal and the high value to high_cal. Each time the iteration reaches a new activity, update the values for high_cal and low_cal and calculate the difference (saved in the diff variable).  
+for (i in 1:len) {
+  current_activity <- exercise_df_modified$ActivityType[i]
+  
+  # Each time the activity changes, record the difference between the low and high calorie values and update values for high_cal and low_cal
+  if (current_activity != prev_activity) {
+    prev_activity <- current_activity
+    high_cal <- exercise_df_modified$Calories.per.kg[i-1] # Save the caloric expenditure of the highest intensity activity 
+    diff <- high_cal - low_cal
+    diff_vector <- append(diff_vector, diff)
+    low_cal <- exercise_df_modified$Calories.per.kg[i] # Save the low caloric expenditure value for the new activity
+    low_vector <- append(low_vector, low_cal)
+    high_vector <- append(high_vector, high_cal)
+  }
+  
+  # If at the end of the dataframe, calculate the last value for the difference between high and low intensity for the last activity type.
+  else if (i == len) {
+    high_cal <- exercise_df_modified$Calories.per.kg[len]
+    diff = high_cal - low_cal
+    diff_vector <- append(diff_vector, diff)
+    high_vector <- append(high_vector, high_cal)
+  }
+}
+cat("The average caloric expenditure of low intensity activities is", mean(low_vector), "calories per kg bodyweight", "\n")
+cat("The average caloric expenditure of high intensity activities is", mean(high_vector), "calories per kg bodyweight", "\n")
+cat("This results in an average difference between low and high intensity activities of ", mean(diff_vector))
+```
+
+The calculated difference between low and high intensity levels is 1.05 cal/kg, which is nearly a 2-fold increase from the average low intensity caloric expenditure of 1.01 cal/kg. This data set is experimental, so to investigate the effect of activity intensity level on caloric expenditure, we will next run a t-test and calculate an effect size for our data. This is a repeated-measures experiment, so we will use a paired t-test.
+
+```{r}
+t.test(low_vector, high_vector, paired = TRUE)
+library(lsr) # Load the package to run the 'cohensD()' function
+cat("The Cohen's D effect size is", cohensD(low_vector, high_vector, method = 'paired'))
+```
+
+The p-value of 3.7E-6 and effect size of 1.5 shows that the relationship is both statistically significant and strong. We will further discuss our findings and how they inform our recommendations for the company's marketing strategy in Phase 6 (Act) section of this report.
+
+# PHASE 5 - SHARE
+
+In addition to the plots displayed throughout this report of the important trends we identified in the data, we include links to Tableau visualizations below:
+
+## 5.1) Exercise Intensity Box Plot
+
+<https://public.tableau.com/app/profile/michael1659/viz/ExerciseIntensityvsCaloriesBurned/Sheet2?publish=yes>
+
+## 5.2) Exercise Intensity Bar Chart
+
+<https://public.tableau.com/app/profile/michael1659/viz/ExerciseIntensityvsCaloriesBurned2/Sheet2>
+
+# PHASE 6 - ACT
+
+In this phase, we consolidate our findings and use them to help inform our company's marketing decisions.
+
+First we revisit the questions from phase 1 (Ask): The questions are reproduced below:
+
+1.1) What are the trends in device usage?\
+1.2) What are potential use-cases for similar products?\
+1.3) How could these trends and use-cases apply to our customers?\
+1.4) How could these insights influence our marketing strategy?
+
+For each of the 3 main insights we gathered from the data (shown in sections 4.1, 4.2, and 4.3 respectively), we will discuss how each of the questions (1.1 - 1.4) pertain to the insight. Section 6 is divided into 3 sub-sections, each corresponding to one of the main insights from section 4.
+
+## 6.1) Heart-Rate Data
+
+#### 6.1.1) What are the Trends in Device Usage?
+
+In section 4.1) we explored the time-series heart rate data collected by the Fitbit devices and found that they recorded several data points where the user's heart rate was either concerningly low or high. The data could also be plotted in a time-series plot to show fluctuations in heart-rate overtime for users, and indeed, large fluctuations can be observed from these plots. This reveals our first trend in the data, that users tend to have occurrences of very low or very high heart rates.
+
+#### 6.1.2) What Are Potential Use-Cases for Similar Products?
+
+We suggest that our fit-tracker device could potentially be used to identify when users have a dangerously low or high heart rate and alert them (or even alert medical professionals). Using the device in this way could potentially prevent serious medical incidents from occurring in extreme cases. The device could also be used to monitor users' heart rate data and make sure it is within healthy ranges.
+
+#### 6.1.3) How Could These Trends and Use-Cases Apply to our Customers?
+
+This use-case could be particularly beneficial for individuals with pre-existing conditions that closely monitor their heart health. The ability to track heart rate data may also be desirable for those interested in general health-tracking.
+
+#### 6.1.4) How Could These Insights Influence our Marketing Strategy?
+
+We could use these insights to market the device as a tool to track heart health overtime and help to catch potential medical emergencies before the user would otherwise we aware of them. We could us this information to target populations that are interested in heart health tracking. For marketing with these populations, it may also be helpful to point out the other health-tracking features of the device, such as tracking steps, calories burned, and activity intensity. In this way, users could do more comprehensive health-tracking with the device. For example, a user could track their immediate heart health, as well as the total number of steps they walk each day.
+
+## 6.2) The Relationship Between Total Steps and Caloric Expenditure
+
+#### 6.2.1) What are the Trends in Device Usage?
+
+In section 4.2) we found that there is a strong linear relationship between total steps walked and calories burned both when averaged for each day (across all participants) and when averaged for each participant (across all days). There was a particularly strong relationship between steps walked in a day and calories burned (0.82). This corresponds to an R-squared value of 0.67, meaning that 67% of the variance in calories burned each day could be explained by variance in total steps taken for that day. While our data alone cannot be used to infer causation between steps walked and calories burned, it is well known that physical activity directly leads to caloric expenditure. Therefore, we feel comfortable concluding that in general, increasing steps taken per day will lead to an increase in calories burned.
+
+#### 6.2.2) What Are Potential Use-Cases for Similar Products?
+
+One use-case is to track the total steps the user takes each day. This could be enhanced with other features such as letting the user select a goal of reaching a target number of steps each day. The user could then choose to have the device send alerts throughout the day to a) let the user know once they have reached the target number of steps for the day, b) notify the user if they are on track to reach their target, or c) remind the user to try to get more steps to reach their goal. It may also be possible to implement a feature where the user inputs into the device their goal-weight and current weight, and the device would then estimate a number of steps to take each day to reach the goal.
+
+#### 6.2.3) How Could These Trends and Use-Cases Apply to our Customers?
+
+These features could be useful for users by providing concrete and specific daily goals that are personalized for each user. Goals of this nature have been shown to be more likely to be achieved than abstract goals, and could be used to boost user's motivation to increase their activity levels.
+
+#### 6.2.4) How Could These Insights Influence our Marketing Strategy?
+
+We could market the strong relationship we found between total steps and calories burned in a day to illustrate to users the benefit of tracking steps to achieve weight loss or exercise goals. The additional features mentioned above could also be marketed to users to help them stay motivated and achieve their goals.
+
+## 6.3) Relationship Between Activity Intensity and Caloric Expenditure
+
+#### 6.3.1) What are the Trends in Device Usage?
+
+In section 4.3) we found moderate correlations (0.18 and 0.26 respectively) between light and moderate activity with calories burned, and a strong correlation (0.61) between vigorous activity and calories burned. We wondered if vigorous activity is particularly effective at increasing caloric expenditure. We chose to further investigate this relationship by finding more data pertaining to activity intensity levels and how they impact caloric expenditure. Ideally, we wanted to find an experimental data set such that we might learn more about the causal relationship between intensity and caloric expenditure (our original data set contains correlational and longitudinal data). We found a dataset that logged data across various intensity levels of 19 distinct activities. We found that all 19 of these activities had caloric expenditure that increased monotonically with increasing intensity - sometimes up to a 3-fold increase from the low intensity version of the activity to the high intensity version. As outlined above in section 4.2), we also found that this relationship was statistically significant (p = 3.7E-6) and has a large effect size of 1.5 when comparing the lowest intensity version to the highest intensity one.
+
+#### 6.3.2) What Are Potential Use-Cases for Similar Products?
+
+One use case is to track users' intensity levels throughout the day during their activities. Users could then track how much time they have logged in low, medium, and high intensity activity and use this information to adjust their activity levels according to their goals. Additionally, our device could potentially recommend a target high-intensity zone for users to aim for during their exercise. For example a user could start exercise and check their smart device to see that they are in the medium intensity zone, they could then increase their intensity to reach the recommended high intensity zone.
+
+#### 6.3.3) How Could These Trends and Use-Cases Apply to our Customers?
+
+These use-cases would apply to our customers that are interested in health tracking, those with weight loss related goals, and those with exercise related goals. Our device could help them to effectively track their activity intensity levels and could provide them with tools to help optimize their exercise intensity.
+
+#### 6.3.4) How Could These Insights Influence our Marketing Strategy?
+
+We could market these functionalities of our device to populations interested in health tracking. We could start by advertising our findings that show that high-intensity activity in particular has a disproportionately large effect on caloric expenditure. From there we could demonstrate how our device can help them track and increase their activity levels to help them reach their specific goals.
