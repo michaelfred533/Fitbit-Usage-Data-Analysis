@@ -10,6 +10,8 @@ https://public.tableau.com/views/ExerciseIntensityvsCaloriesBurned/Sheet2?:langu
 
 ## What I Learned
 -Extracting marketing insights from usage trends 
+
 -Creating concise and intuitive Tableau data visualizations that tell a story with data
+
 -Creating a written report that shows the main steps of my data anlaysis process
 
