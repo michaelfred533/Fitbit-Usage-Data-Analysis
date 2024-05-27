@@ -4,6 +4,7 @@ In this project I analyze smart watch health tracker data to extract insights an
 
 Tableau Visualizations
 https://public.tableau.com/views/ExerciseIntensityvsCaloriesBurned2/Sheet2?:language=en-US&:sid=&:display_count=n&:origin=viz_share_link
+
 https://public.tableau.com/views/ExerciseIntensityvsCaloriesBurned/Sheet2?:language=en-US&:sid=&:display_count=n&:origin=viz_share_link
 
 ## What I Learned
